@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -18,8 +20,27 @@ android {
         versionName = "1.0.0"
     }
 
+    // Release signing key lives OUTSIDE the repo (never commit it):
+    // ~/MusicSystemManager-signing-key/keystore.properties, or keystore.properties in the project root.
+    val keystoreProps = listOf(
+        rootProject.file("keystore.properties"),
+        file("${System.getProperty("user.home")}/MusicSystemManager-signing-key/keystore.properties"),
+    ).firstOrNull { it.exists() }?.let { f -> Properties().apply { f.inputStream().use { load(it) } } }
+
+    signingConfigs {
+        if (keystoreProps != null) {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

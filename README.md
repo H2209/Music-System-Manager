@@ -4,6 +4,15 @@ A free Android music player and playlist manager. No ads, no account, no trackin
 
 **Supports Android 8.0 (API 26) through Android 16 (target API 35).**
 
+## 📥 Download & install (Android phone)
+
+1. On your phone, open the **[latest release](../../releases/latest)** and tap **`MusicSystemManager-1.0.0.apk`** to download it (about 2 MB).
+2. Open the downloaded file. If Android asks, allow **"Install unknown apps"** for your browser or Files app. This is normal for apps that don't come from the Play Store.
+3. Tap **Install**, then **Open**.
+4. In the app, tap **Scan phone for music**, or import files or a folder.
+
+> If Play Protect shows "unrecognised developer", tap **More details → Install anyway**. The app has no internet permission and collects nothing.
+
 ## Features
 
 - **Import music**
@@ -51,8 +60,15 @@ gradle wrapper --gradle-version 8.11.1   # one time, creates ./gradlew
 
 ### Releasing an APK people can download
 
-1. Create a signing key: Android Studio → *Build → Generate Signed Bundle / APK*.
-2. Build `release`. Share the APK directly, or upload the `.aab` to Google Play.
+The release build is signed with a key kept **outside** this repository, in
+`~/MusicSystemManager-signing-key/` (`release.jks` + `keystore.properties`). The build finds it automatically.
+
+```bash
+./gradlew assembleRelease   # APK: app/build/outputs/apk/release/app-release.apk
+```
+
+⚠️ Back up that key folder. Every future update must be signed with the **same** key, or phones will refuse to install it over the old version.
+Without the key folder, `assembleRelease` produces an unsigned APK.
 
 ## Permissions (and why)
 
