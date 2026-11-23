@@ -23,11 +23,15 @@ class MusicRepository(
 
     // ---------- Library ----------
 
-    fun searchSongs(query: String): Flow<List<Song>> = songDao.search(query.trim())
+    // Library lists hide extra copies of the same song (see Duplicates).
+    fun searchSongs(query: String): Flow<List<Song>> =
+        songDao.search(query.trim()).map(Duplicates::hide)
     fun searchSongs(query: String, recordings: Boolean): Flow<List<Song>> =
-        songDao.searchKind(query.trim(), recordings)
+        songDao.searchKind(query.trim(), recordings).map(Duplicates::hide)
     val songCount: Flow<Int> = songDao.count()
-    val recordingCount: Flow<Int> = songDao.recordingCount()
+    /** Counts for the Songs / Recordings tabs, after hiding duplicates. */
+    val songsTabCount: Flow<Int> = searchSongs("", recordings = false).map { it.size }
+    val recordingCount: Flow<Int> = searchSongs("", recordings = true).map { it.size }
     suspend fun song(id: Long): Song? = songDao.byId(id)
 
     /** Lets the user fix a wrong guess: move a file between Songs and Recordings. */

@@ -38,6 +38,9 @@ class LibraryViewModel(private val repo: MusicRepository) : ViewModel() {
     val recordingCount: StateFlow<Int> = repo.recordingCount
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
+    val songsTabCount: StateFlow<Int> = repo.songsTabCount
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
     fun showRecordings(show: Boolean) {
         _showRecordings.value = show
     }

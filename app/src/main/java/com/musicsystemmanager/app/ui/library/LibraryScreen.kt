@@ -77,6 +77,7 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
     val busy by vm.busy.collectAsStateWithLifecycle()
     val showRecordings by vm.showRecordings.collectAsStateWithLifecycle()
     val recordingCount by vm.recordingCount.collectAsStateWithLifecycle()
+    val songsTabCount by vm.songsTabCount.collectAsStateWithLifecycle()
     val player = container.player
     val playerState by player.state.collectAsStateWithLifecycle()
     var addTarget by remember { mutableStateOf<Song?>(null) }
@@ -162,7 +163,7 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
                     FilterChip(
                         selected = !showRecordings,
                         onClick = { vm.showRecordings(false) },
-                        label = { Text("Songs · ${(total ?: 0) - recordingCount}") },
+                        label = { Text("Songs · $songsTabCount") },
                         leadingIcon = { Icon(Icons.Filled.MusicNote, null, Modifier.size(18.dp)) },
                     )
                     FilterChip(
