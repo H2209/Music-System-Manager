@@ -14,10 +14,11 @@ abstract class SongDao {
     @Query(
         """
         SELECT * FROM songs
-        WHERE :query = ''
+        WHERE duplicateOf IS NULL
+          AND (:query = ''
            OR title LIKE '%' || :query || '%'
            OR artist LIKE '%' || :query || '%'
-           OR album LIKE '%' || :query || '%'
+           OR album LIKE '%' || :query || '%')
         ORDER BY title COLLATE NOCASE
         """
     )
@@ -27,7 +28,8 @@ abstract class SongDao {
     @Query(
         """
         SELECT * FROM songs
-        WHERE ((:recordings = 1 AND kind = 'recording')
+        WHERE duplicateOf IS NULL
+          AND ((:recordings = 1 AND kind = 'recording')
             OR (:recordings = 0 AND (kind IS NULL OR kind != 'recording')))
           AND (:query = ''
            OR title LIKE '%' || :query || '%'
@@ -61,11 +63,57 @@ abstract class SongDao {
 
     // ---------- Liked songs (👍) ----------
 
-    @Query("SELECT * FROM songs WHERE likedAt IS NOT NULL ORDER BY likedAt DESC")
+    @Query("SELECT * FROM songs WHERE likedAt IS NOT NULL AND duplicateOf IS NULL ORDER BY likedAt DESC")
     abstract fun liked(): Flow<List<Song>>
 
-    @Query("SELECT COUNT(*) FROM songs WHERE likedAt IS NOT NULL")
+    @Query("SELECT COUNT(*) FROM songs WHERE likedAt IS NOT NULL AND duplicateOf IS NULL")
     abstract fun likedCount(): Flow<Int>
+
+    // ---------- Same-audio duplicates ----------
+
+    @Query("SELECT * FROM songs WHERE duplicateOf IS NULL")
+    abstract suspend fun visibleSongs(): List<Song>
+
+    @Query("SELECT COUNT(*) FROM songs WHERE duplicateOf IS NOT NULL")
+    abstract fun hiddenDuplicateCount(): Flow<Int>
+
+    @Query("UPDATE songs SET duplicateOf = :originalId WHERE id = :copyId")
+    abstract suspend fun setDuplicateOf(copyId: Long, originalId: Long)
+
+    @Query(
+        """UPDATE songs SET likedAt = (SELECT likedAt FROM songs WHERE id = :copyId)
+           WHERE id = :originalId AND likedAt IS NULL"""
+    )
+    abstract suspend fun inheritLike(copyId: Long, originalId: Long)
+
+    @Query(
+        """INSERT OR IGNORE INTO playlist_songs (playlistId, songId, position, addedAt)
+           SELECT playlistId, :originalId, position, addedAt FROM playlist_songs WHERE songId = :copyId"""
+    )
+    abstract suspend fun copyPlaylistEntries(copyId: Long, originalId: Long)
+
+    @Query("DELETE FROM playlist_songs WHERE songId = :copyId")
+    abstract suspend fun deletePlaylistEntries(copyId: Long)
+
+    /**
+     * Hides [copyId] as a copy of [originalId]. Its 👍 and playlist places move to the
+     * original, so nothing the user set up is lost.
+     */
+    @Transaction
+    open suspend fun mergeIntoOriginal(copyId: Long, originalId: Long) {
+        inheritLike(copyId, originalId)
+        copyPlaylistEntries(copyId, originalId)
+        deletePlaylistEntries(copyId)
+        setDuplicateOf(copyId, originalId)
+    }
+
+    /** Shows every hidden copy again. Returns how many. */
+    @Query("UPDATE songs SET duplicateOf = NULL WHERE duplicateOf IS NOT NULL")
+    abstract suspend fun restoreAllDuplicates(): Int
+
+    /** A copy whose original was removed becomes visible again. */
+    @Query("UPDATE songs SET duplicateOf = NULL WHERE duplicateOf IS NOT NULL AND duplicateOf NOT IN (SELECT id FROM songs)")
+    abstract suspend fun releaseOrphanedCopies()
 
     @Query("SELECT COUNT(*) FROM songs WHERE id = :id AND likedAt IS NOT NULL")
     abstract fun likedFlag(id: Long): Flow<Int>
@@ -100,17 +148,33 @@ abstract class SongDao {
     @Query("DELETE FROM playlist_songs WHERE songId NOT IN (SELECT id FROM songs)")
     abstract suspend fun deleteOrphanPlaylistEntries()
 
+    @Query("DELETE FROM fingerprints WHERE songId NOT IN (SELECT id FROM songs)")
+    abstract suspend fun deleteOrphanFingerprints()
+
     @Transaction
     open suspend fun deleteByUris(uris: List<String>) {
         uris.chunked(500).forEach { deleteSongsByUri(it) }
         deleteOrphanPlaylistEntries()
+        deleteOrphanFingerprints()
+        releaseOrphanedCopies()
     }
 
     @Transaction
     open suspend fun delete(id: Long) {
         deleteSong(id)
         deleteOrphanPlaylistEntries()
+        deleteOrphanFingerprints()
+        releaseOrphanedCopies()
     }
+}
+
+@Dao
+abstract class FingerprintDao {
+    @Query("SELECT * FROM fingerprints WHERE songId = :songId AND version = :version")
+    abstract suspend fun get(songId: Long, version: Int): SongFingerprint?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun put(fp: SongFingerprint)
 }
 
 @Dao

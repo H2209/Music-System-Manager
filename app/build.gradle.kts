@@ -16,9 +16,9 @@ android {
         // Android 8.0 (Oreo) and newer
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
+        versionCode = 4
         // -Pmsm.versionName=… lets a test build pretend to be older (to try the update pop-up).
-        versionName = (project.findProperty("msm.versionName") as String?) ?: "1.0.2"
+        versionName = (project.findProperty("msm.versionName") as String?) ?: "1.0.3"
     }
 
     // Release signing key lives OUTSIDE the repo (never commit it):

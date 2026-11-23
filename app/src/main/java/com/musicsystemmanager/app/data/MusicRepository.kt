@@ -8,6 +8,9 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import androidx.documentfile.provider.DocumentFile
+import com.musicsystemmanager.app.data.fingerprint.AudioDecoder
+import com.musicsystemmanager.app.data.fingerprint.Fingerprint
+import com.musicsystemmanager.app.data.fingerprint.FingerprintMatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -17,6 +20,7 @@ class MusicRepository(
     context: Context,
     private val songDao: SongDao,
     private val playlistDao: PlaylistDao,
+    private val fingerprintDao: FingerprintDao,
 ) {
     private val context = context.applicationContext
     private val resolver get() = context.contentResolver
@@ -33,6 +37,90 @@ class MusicRepository(
     val songsTabCount: Flow<Int> = searchSongs("", recordings = false).map { it.size }
     val recordingCount: Flow<Int> = searchSongs("", recordings = true).map { it.size }
     suspend fun song(id: Long): Song? = songDao.byId(id)
+
+    // ---------- Same-audio duplicates ----------
+
+    val hiddenDuplicateCount: Flow<Int> = songDao.hiddenDuplicateCount()
+
+    /**
+     * "Listens" to songs and hides exact copies of the same recording, whatever their file
+     * names. Only songs of similar length (within 3 s) are compared, so this stays quick;
+     * each song is analysed once and the result saved. From each group of copies one
+     * original stays in the library: the best-quality copy (the biggest
+     * file). The copies' likes and playlist places move to it. Files are never deleted.
+     *
+     * [onProgress] reports (songs analysed, songs to analyse). Returns how many were hidden.
+     */
+    suspend fun hideSameAudioDuplicates(onProgress: (done: Int, total: Int) -> Unit): Int =
+        withContext(Dispatchers.IO) {
+            val songs = songDao.visibleSongs().filter { it.durationMs >= MIN_COMPARE_MS }
+            val sorted = songs.sortedBy { it.durationMs }
+            val pairs = ArrayList<Pair<Song, Song>>()
+            for (i in sorted.indices) {
+                var j = i + 1
+                while (j < sorted.size && sorted[j].durationMs - sorted[i].durationMs <= LENGTH_TOLERANCE_MS) {
+                    if (sorted[i].isRecording == sorted[j].isRecording) pairs += sorted[i] to sorted[j]
+                    j++
+                }
+            }
+            val toAnalyse = pairs.flatMap { listOf(it.first, it.second) }.distinctBy { it.id }
+            val prints = HashMap<Long, Fingerprint?>()
+            toAnalyse.forEachIndexed { index, song ->
+                onProgress(index, toAnalyse.size)
+                prints[song.id] = fingerprintOf(song)
+            }
+            onProgress(toAnalyse.size, toAnalyse.size)
+
+            // Group matching songs (if A = B and B = C, all three are one group).
+            val parent = HashMap<Long, Long>()
+            fun root(id: Long): Long {
+                var r = id
+                while (parent[r] != null && parent[r] != r) r = parent[r]!!
+                return r
+            }
+            for ((a, b) in pairs) {
+                val fa = prints[a.id] ?: continue
+                val fb = prints[b.id] ?: continue
+                if (FingerprintMatcher.isSameRecording(fa, fb)) parent[root(b.id)] = root(a.id)
+            }
+            val groups = toAnalyse.groupBy { root(it.id) }.values.filter { it.size > 1 }
+
+            var hidden = 0
+            for (group in groups) {
+                val sizes = group.associate { it.id to fileSize(it.uri) }
+                // Keep the best-quality file (the biggest); likes and playlists move to it.
+                val original = group.minWith(
+                    compareBy<Song>(
+                        { -(sizes[it.id] ?: 0L) },
+                        { if (it.source == Song.SOURCE_DEVICE) 0 else 1 },
+                        { it.id },
+                    )
+                )
+                group.filter { it.id != original.id }.forEach {
+                    songDao.mergeIntoOriginal(copyId = it.id, originalId = original.id)
+                    hidden++
+                }
+            }
+            hidden
+        }
+
+    /** Shows every hidden copy again. Returns how many. */
+    suspend fun restoreHiddenDuplicates(): Int = songDao.restoreAllDuplicates()
+
+    private suspend fun fingerprintOf(song: Song): Fingerprint? {
+        fingerprintDao.get(song.id, Fingerprint.VERSION)?.let { saved ->
+            return saved.data?.let(Fingerprint::fromBytes)
+        }
+        val fp = AudioDecoder.fingerprint(context, Uri.parse(song.uri))
+        fingerprintDao.put(SongFingerprint(song.id, fp?.toBytes(), Fingerprint.VERSION))
+        return fp
+    }
+
+    private fun fileSize(uri: String): Long = runCatching {
+        resolver.query(Uri.parse(uri), arrayOf(OpenableColumns.SIZE), null, null, null)?.use {
+            if (it.moveToFirst() && !it.isNull(0)) it.getLong(0) else 0L
+        } ?: 0L
+    }.getOrDefault(0L)
 
     /** Lets the user fix a wrong guess: move a file between Songs and Recordings. */
     suspend fun setRecording(songId: Long, isRecording: Boolean) =
@@ -250,6 +338,9 @@ class MusicRepository(
         if (isNullOrBlank() || this == "<unknown>") Song.UNKNOWN_ARTIST else trim()
 
     private companion object {
+        const val MIN_COMPARE_MS = 10_000L // very short clips are skipped
+        const val LENGTH_TOLERANCE_MS = 3_000L
+
         val AUDIO_EXTENSIONS = setOf(
             "mp3", "m4a", "aac", "flac", "wav", "ogg", "oga", "opus", "wma", "amr", "mid", "midi",
         )

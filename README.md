@@ -32,7 +32,7 @@ A free Android music player and playlist manager. No ads, no account, no trackin
 - **Queue**: song names on the left and a round handle on the right. Drag the handle to move a song up or down; swipe anywhere else to scroll. Shows the next 15 songs, and the rest join as songs finish. Tap a song to play it now.
 - **Background playback** with the screen off or the app closed, with a notification and lock-screen controls. Headphone and Bluetooth buttons work. Playback pauses when headphones are unplugged.
 - **Update pop-up**: when a new version is published on GitHub, the app says so once and offers **Update / Later / Skip this version**. Library → ⋮ also has *Check for updates* and an on/off switch.
-- **Duplicate downloads show once**: if the same song was downloaded twice (e.g. "Song.mp3" and "Song (1).mp3"), the list shows it only once. Nothing is deleted.
+- **Duplicate songs show once, even with different names**: the ⟳ **Refresh** button in the Library listens to your songs (an audio fingerprint of each one, start to end) and finds identical recordings, whatever the file is called. It keeps the best-quality copy as the original, moves likes and playlist places to it, and hides the rest. Nothing is deleted; Library → ⋮ → *Show hidden duplicates* brings them back. Simple cases like "Song (1).mp3" are hidden straight away.
 - Material You colours on Android 12+ and dark mode.
 
 ## Tech

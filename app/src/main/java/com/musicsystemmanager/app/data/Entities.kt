@@ -21,6 +21,8 @@ data class Song(
     val likedAt: Long? = null,
     /** [KIND_RECORDING] for voice/call recordings; null or [KIND_SONG] for music. */
     val kind: String? = KIND_SONG,
+    /** If this file is an exact copy of another song (same audio), that song's id. Hidden. */
+    val duplicateOf: Long? = null,
 ) {
     val isLiked: Boolean get() = likedAt != null
     val isRecording: Boolean get() = kind == KIND_RECORDING
@@ -52,6 +54,17 @@ data class PlaylistSong(
     val songId: Long,
     val position: Int,
     val addedAt: Long = System.currentTimeMillis(),
+)
+
+/**
+ * Saved audio fingerprint of a song, so each file is only "listened to" once.
+ * [data] is null when the file couldn't be analysed (silent, unreadable).
+ */
+@Entity(tableName = "fingerprints")
+class SongFingerprint(
+    @PrimaryKey val songId: Long,
+    val data: ByteArray?,
+    val version: Int,
 )
 
 data class PlaylistWithCount(

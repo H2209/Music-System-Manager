@@ -26,7 +26,7 @@ class AppContainer(context: Context) {
     /** Scope for work that must finish even if the screen that started it goes away. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val database = MusicDatabase.build(context)
-    val repository = MusicRepository(context, database.songDao(), database.playlistDao())
+    val repository = MusicRepository(context, database.songDao(), database.playlistDao(), database.fingerprintDao())
     val player = PlayerConnection(context)
     val artwork = ArtworkLoader(context)
     val updates = UpdateChecker(context, appScope)

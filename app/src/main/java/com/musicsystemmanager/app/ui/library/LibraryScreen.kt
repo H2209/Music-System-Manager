@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PlayArrow
@@ -83,6 +85,8 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
     val showRecordings by vm.showRecordings.collectAsStateWithLifecycle()
     val recordingCount by vm.recordingCount.collectAsStateWithLifecycle()
     val songsTabCount by vm.songsTabCount.collectAsStateWithLifecycle()
+    val dupProgress by vm.dupProgress.collectAsStateWithLifecycle()
+    val hiddenDuplicates by vm.hiddenDuplicateCount.collectAsStateWithLifecycle()
     val player = container.player
     val playerState by player.state.collectAsStateWithLifecycle()
     var addTarget by remember { mutableStateOf<Song?>(null) }
@@ -127,12 +131,46 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
         TopAppBar(
             title = { Text("Library") },
             actions = {
+                // Refresh: rescan, then listen for identical songs and keep one original.
+                IconButton(
+                    onClick = {
+                        val allowed = ContextCompat.checkSelfPermission(context, audioPermission) ==
+                            PackageManager.PERMISSION_GRANTED
+                        vm.refresh(scanFirst = allowed)
+                    },
+                    enabled = !busy,
+                ) {
+                    Icon(Icons.Filled.Refresh, contentDescription = "Refresh and remove duplicate songs")
+                }
                 ImportMenu(onScan = scanPhone, onFiles = importFiles, onFolder = importFolder)
-                AppMenu(container, showMessage)
+                AppMenu(
+                    container, showMessage,
+                    hiddenDuplicates = hiddenDuplicates,
+                    onRestoreDuplicates = vm::restoreHiddenDuplicates,
+                )
             },
         )
 
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        val progress = dupProgress
+        if (progress != null) {
+            val (done, all) = progress
+            if (all > 0) {
+                LinearProgressIndicator(
+                    progress = { done.toFloat() / all },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+            Text(
+                if (all > 0) "Listening for duplicate songs… $done of $all" else "Checking for duplicate songs…",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        } else if (busy) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
 
         when {
             total == null -> Unit // still loading
@@ -261,7 +299,12 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
 
 /** ⋮ menu: check for updates now, turn automatic update checks on/off, see the version. */
 @Composable
-private fun AppMenu(container: AppContainer, showMessage: (String) -> Unit) {
+private fun AppMenu(
+    container: AppContainer,
+    showMessage: (String) -> Unit,
+    hiddenDuplicates: Int,
+    onRestoreDuplicates: () -> Unit,
+) {
     val updates = container.updates
     val autoCheck by updates.autoCheck.collectAsStateWithLifecycle()
     var open by remember { mutableStateOf(false) }
@@ -285,6 +328,13 @@ private fun AppMenu(container: AppContainer, showMessage: (String) -> Unit) {
                 trailingIcon = { Checkbox(checked = autoCheck, onCheckedChange = null) },
                 onClick = { updates.setAutoCheck(!autoCheck) },
             )
+            if (hiddenDuplicates > 0) {
+                DropdownMenuItem(
+                    text = { Text("Show hidden duplicates ($hiddenDuplicates)") },
+                    leadingIcon = { Icon(Icons.Filled.Visibility, null) },
+                    onClick = { open = false; onRestoreDuplicates() },
+                )
+            }
             DropdownMenuItem(
                 text = { Text("Version ${updates.currentVersion}") },
                 leadingIcon = { Icon(Icons.Filled.Info, null) },
