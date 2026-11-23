@@ -7,6 +7,9 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- Only used to ask GitHub whether a newer version of the app exists (can be turned off). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Keep playing in the background with a media notification -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />

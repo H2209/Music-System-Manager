@@ -32,6 +32,7 @@ import com.musicsystemmanager.app.ui.library.LibraryScreen
 import com.musicsystemmanager.app.ui.player.MiniPlayer
 import com.musicsystemmanager.app.ui.player.NowPlayingScreen
 import com.musicsystemmanager.app.ui.player.QueueScreen
+import com.musicsystemmanager.app.update.UpdateDialog
 import com.musicsystemmanager.app.ui.player.SleepTimerSheet
 import com.musicsystemmanager.app.ui.playlists.LikedSongsScreen
 import androidx.compose.runtime.mutableStateOf
@@ -165,6 +166,19 @@ fun AppRoot(container: AppContainer) {
                 )
             }
         }
+    }
+
+    // "New version available" pop-up: checked quietly once a day when the app opens.
+    LaunchedEffect(Unit) { container.updates.checkOnStartup() }
+    val update by container.updates.available.collectAsStateWithLifecycle()
+    update?.let { u ->
+        UpdateDialog(
+            update = u,
+            currentVersion = container.updates.currentVersion,
+            onLater = container.updates::dismiss,
+            onSkip = { container.updates.skip(u.version) },
+            showMessage = showMessage,
+        )
     }
 
     if (showTimer) {

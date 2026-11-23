@@ -22,6 +22,11 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Checkbox
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PlayArrow
@@ -121,7 +126,10 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("Library") },
-            actions = { ImportMenu(onScan = scanPhone, onFiles = importFiles, onFolder = importFolder) },
+            actions = {
+                ImportMenu(onScan = scanPhone, onFiles = importFiles, onFolder = importFolder)
+                AppMenu(container, showMessage)
+            },
         )
 
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -248,6 +256,42 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
 
     addTarget?.let { song ->
         AddToPlaylistSheet(container, song, onDismiss = { addTarget = null }, showMessage = showMessage)
+    }
+}
+
+/** ⋮ menu: check for updates now, turn automatic update checks on/off, see the version. */
+@Composable
+private fun AppMenu(container: AppContainer, showMessage: (String) -> Unit) {
+    val updates = container.updates
+    val autoCheck by updates.autoCheck.collectAsStateWithLifecycle()
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(Icons.Filled.MoreVert, contentDescription = "App menu")
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text("Check for updates") },
+                leadingIcon = { Icon(Icons.Filled.SystemUpdate, null) },
+                onClick = {
+                    open = false
+                    showMessage("Checking for updates…")
+                    updates.checkNow(showMessage)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Check automatically") },
+                leadingIcon = { Icon(Icons.Filled.Autorenew, null) },
+                trailingIcon = { Checkbox(checked = autoCheck, onCheckedChange = null) },
+                onClick = { updates.setAutoCheck(!autoCheck) },
+            )
+            DropdownMenuItem(
+                text = { Text("Version ${updates.currentVersion}") },
+                leadingIcon = { Icon(Icons.Filled.Info, null) },
+                enabled = false,
+                onClick = {},
+            )
+        }
     }
 }
 

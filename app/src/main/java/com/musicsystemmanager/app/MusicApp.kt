@@ -6,6 +6,7 @@ import com.musicsystemmanager.app.data.ArtworkLoader
 import com.musicsystemmanager.app.data.MusicDatabase
 import com.musicsystemmanager.app.data.MusicRepository
 import com.musicsystemmanager.app.playback.PlayerConnection
+import com.musicsystemmanager.app.update.UpdateChecker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,4 +29,5 @@ class AppContainer(context: Context) {
     val repository = MusicRepository(context, database.songDao(), database.playlistDao())
     val player = PlayerConnection(context)
     val artwork = ArtworkLoader(context)
+    val updates = UpdateChecker(context, appScope)
 }

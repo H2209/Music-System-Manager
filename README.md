@@ -11,7 +11,7 @@ A free Android music player and playlist manager. No ads, no account, no trackin
 3. Tap **Install**, then **Open**.
 4. In the app, tap **Scan phone for music**, or import files or a folder.
 
-> If Play Protect shows "unrecognised developer", tap **More details → Install anyway**. The app has no internet permission and collects nothing.
+> If Play Protect shows "unrecognised developer", tap **More details → Install anyway**. The app collects nothing about you or your music.
 
 ## Features
 
@@ -31,6 +31,8 @@ A free Android music player and playlist manager. No ads, no account, no trackin
 - **Sleep timer**: 5, 10, 15, 30, 45, 50 minutes or 1 hour. Music pauses by itself when time is up, even with the screen off or the app closed. A countdown shows in the player.
 - **Queue**: song names on the left and a round handle on the right. Drag the handle to move a song up or down; swipe anywhere else to scroll. Shows the next 15 songs, and the rest join as songs finish. Tap a song to play it now.
 - **Background playback** with the screen off or the app closed, with a notification and lock-screen controls. Headphone and Bluetooth buttons work. Playback pauses when headphones are unplugged.
+- **Update pop-up**: when a new version is published on GitHub, the app says so once and offers **Update / Later / Skip this version**. Library → ⋮ also has *Check for updates* and an on/off switch.
+- **Duplicate downloads show once**: if the same song was downloaded twice (e.g. "Song.mp3" and "Song (1).mp3"), the list shows it only once. Nothing is deleted.
 - Material You colours on Android 12+ and dark mode.
 
 ## Tech
@@ -79,8 +81,9 @@ Without the key folder, `assembleRelease` produces an unsigned APK.
 | `READ_MEDIA_AUDIO` (13+) / `READ_EXTERNAL_STORAGE` (8–12) | Only for *Scan phone for music*. Importing files or folders works without it. |
 | `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `WAKE_LOCK` | Keep music playing with the screen off. |
 | `POST_NOTIFICATIONS` (13+) | Show the play/pause/next notification. |
+| `INTERNET` | Only to ask GitHub whether a newer version exists (about once a day). It sends nothing about you or your music. Turn it off in Library → ⋮ → *Check automatically*. |
 
-The app has no internet permission, so it cannot send anything anywhere.
+The app collects no data. Your music, playlists and likes never leave your phone.
 
 ## Roadmap ideas
 
