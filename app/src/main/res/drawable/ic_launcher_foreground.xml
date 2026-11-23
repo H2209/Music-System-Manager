@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- music note, kept inside the 66dp safe zone -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M62,32 L62,62.5 C60.3,61.5 58.3,61 56,61 C50.5,61 46,64.6 46,69 C46,73.4 50.5,77 56,77 C61.5,77 66,73.4 66,69 L66,42 L76,42 L76,32 Z" />
+    <path
+        android:fillColor="#FFD0BCFF"
+        android:pathData="M34,40 L54,40 L54,44 L34,44 Z M34,49 L54,49 L54,53 L34,53 Z M34,58 L46,58 L46,62 L34,62 Z" />
+</vector>
