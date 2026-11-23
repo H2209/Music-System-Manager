@@ -67,6 +67,11 @@ import com.musicsystemmanager.app.ui.components.AddToPlaylistSheet
 import com.musicsystemmanager.app.ui.components.MenuAction
 import com.musicsystemmanager.app.ui.components.OverflowMenu
 import com.musicsystemmanager.app.ui.components.formatDuration
+import com.musicsystemmanager.app.ui.components.SongArtwork
+import com.musicsystemmanager.app.ui.components.rememberArtwork
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.filled.Mic
 import com.musicsystemmanager.app.ui.components.toggleLike
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
@@ -129,15 +134,13 @@ fun MiniPlayer(
                     .padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Filled.MusicNote, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                }
+                SongArtwork(
+                    uri = state.uri,
+                    isRecording = false,
+                    isCurrent = false,
+                    size = 40.dp,
+                    cornerRadius = 8.dp,
+                )
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(state.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
@@ -251,11 +254,23 @@ fun NowPlayingScreen(
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                Icons.Filled.MusicNote, null,
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(120.dp),
-            )
+            // The song's own cover picture, large; the gradient + note shows when it has none.
+            val bigArt = rememberArtwork(state.uri, sizePx = 900)
+            if (bigArt != null) {
+                Image(
+                    bigArt,
+                    contentDescription = "Cover art",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Icon(
+                    if (currentSong?.isRecording == true) Icons.Filled.Mic else Icons.Filled.MusicNote,
+                    null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(120.dp),
+                )
+            }
         }
 
         Spacer(Modifier.height(24.dp))

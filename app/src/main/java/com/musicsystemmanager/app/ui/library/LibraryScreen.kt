@@ -19,6 +19,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
@@ -71,6 +75,8 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
     val songs by vm.songs.collectAsStateWithLifecycle()
     val total by vm.totalSongs.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
+    val showRecordings by vm.showRecordings.collectAsStateWithLifecycle()
+    val recordingCount by vm.recordingCount.collectAsStateWithLifecycle()
     val player = container.player
     val playerState by player.state.collectAsStateWithLifecycle()
     var addTarget by remember { mutableStateOf<Song?>(null) }
@@ -100,6 +106,12 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
             vm.scanDevice()
         } else {
             permissionLauncher.launch(audioPermission)
+        }
+    }
+    // Re-scan quietly on open (if allowed) so new downloads show up and older entries get sorted.
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, audioPermission) == PackageManager.PERMISSION_GRANTED) {
+            vm.autoScanOnce()
         }
     }
     val importFiles = { filesLauncher.launch(arrayOf("audio/*")) }
@@ -138,9 +150,44 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
             }
 
             else -> {
-                SearchField(query, vm::setQuery, placeholder = "Search songs, artists, albums")
+                SearchField(
+                    query, vm::setQuery,
+                    placeholder = if (showRecordings) "Search recordings" else "Search songs, artists, albums",
+                )
+                // Songs | Recordings tabs keep voice/call recordings out of the music list.
+                Row(
+                    Modifier.padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = !showRecordings,
+                        onClick = { vm.showRecordings(false) },
+                        label = { Text("Songs · ${(total ?: 0) - recordingCount}") },
+                        leadingIcon = { Icon(Icons.Filled.MusicNote, null, Modifier.size(18.dp)) },
+                    )
+                    FilterChip(
+                        selected = showRecordings,
+                        onClick = { vm.showRecordings(true) },
+                        label = { Text("Recordings · $recordingCount") },
+                        leadingIcon = { Icon(Icons.Filled.Mic, null, Modifier.size(18.dp)) },
+                    )
+                }
                 if (songs.isEmpty()) {
-                    EmptyState(emoji = "🔍", title = "No matches", body = "Nothing matches \"$query\".")
+                    when {
+                        query.isNotBlank() ->
+                            EmptyState(emoji = "🔍", title = "No matches", body = "Nothing matches \"$query\".")
+                        showRecordings -> EmptyState(
+                            emoji = "🎙️",
+                            title = "No recordings",
+                            body = "Voice memos, call recordings and voice notes found on your phone appear here, " +
+                                "separate from your songs.",
+                        )
+                        else -> EmptyState(
+                            emoji = "🎶",
+                            title = "No songs yet",
+                            body = "Everything found so far is on the Recordings tab. Import files or a folder to add music.",
+                        )
+                    }
                 } else {
                     LazyColumn(contentPadding = ListContentPadding) {
                         item(key = "header") {
@@ -151,7 +198,9 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
-                                    songCountLabel(songs.size),
+                                    if (showRecordings) {
+                                        if (songs.size == 1) "1 recording" else "${songs.size} recordings"
+                                    } else songCountLabel(songs.size),
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.weight(1f),
@@ -169,6 +218,8 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
                             SongRow(
                                 song = song,
                                 isCurrent = playerState.songId == song.id,
+                                isPlaying = playerState.isPlaying,
+                                onTogglePlayPause = player::togglePlayPause,
                                 onPlay = { player.playSongs(songs, index) },
                                 onAddToPlaylist = { addTarget = song },
                                 onToggleLike = { container.toggleLike(song.id, showMessage) },
@@ -178,6 +229,11 @@ fun LibraryScreen(container: AppContainer, showMessage: (String) -> Unit) {
                                     },
                                     MenuAction("Add to queue") {
                                         player.addToQueue(song); showMessage("Added to queue")
+                                    },
+                                    if (song.isRecording) {
+                                        MenuAction("This is a song (move to Songs)") { vm.setRecording(song, false) }
+                                    } else {
+                                        MenuAction("This is a recording (move to Recordings)") { vm.setRecording(song, true) }
                                     },
                                     MenuAction("Remove from app") { vm.removeFromLibrary(song) },
                                 ),

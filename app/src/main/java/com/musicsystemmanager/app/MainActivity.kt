@@ -11,6 +11,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.musicsystemmanager.app.ui.AppRoot
 import com.musicsystemmanager.app.ui.theme.MusicTheme
+import com.musicsystemmanager.app.ui.components.LocalArtworkLoader
+import androidx.compose.runtime.CompositionLocalProvider
 
 class MainActivity : ComponentActivity() {
 
@@ -34,7 +36,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MusicTheme {
-                AppRoot(container)
+                CompositionLocalProvider(LocalArtworkLoader provides container.artwork) {
+                    AppRoot(container)
+                }
             }
         }
     }

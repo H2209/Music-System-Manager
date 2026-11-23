@@ -145,6 +145,8 @@ fun PlaylistDetailScreen(
                 SongRow(
                     song = song,
                     isCurrent = playerState.songId == song.id,
+                    isPlaying = playerState.isPlaying,
+                    onTogglePlayPause = player::togglePlayPause,
                     onPlay = { player.playSongs(songs, index) },
                     onAddToPlaylist = { addTarget = song },
                     onToggleLike = { container.toggleLike(song.id, showMessage) },

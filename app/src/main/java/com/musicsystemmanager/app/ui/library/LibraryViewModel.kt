@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -22,13 +23,41 @@ class LibraryViewModel(private val repo: MusicRepository) : ViewModel() {
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    val songs: StateFlow<List<Song>> = _query
-        .flatMapLatest { repo.searchSongs(it) }
+    /** false = Songs tab, true = Recordings tab. */
+    private val _showRecordings = MutableStateFlow(false)
+    val showRecordings: StateFlow<Boolean> = _showRecordings.asStateFlow()
+
+    val songs: StateFlow<List<Song>> = combine(_query, _showRecordings) { q, rec -> q to rec }
+        .flatMapLatest { (q, rec) -> repo.searchSongs(q, recordings = rec) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** null until the database answers, so we don't flash the empty screen. */
     val totalSongs: StateFlow<Int?> = repo.songCount
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val recordingCount: StateFlow<Int> = repo.recordingCount
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    fun showRecordings(show: Boolean) {
+        _showRecordings.value = show
+    }
+
+    fun setRecording(song: Song, isRecording: Boolean) = viewModelScope.launch {
+        repo.setRecording(song.id, isRecording)
+        _messages.tryEmit(if (isRecording) "Moved to Recordings" else "Moved to Songs")
+    }
+
+    private var autoScanned = false
+
+    /** Quietly re-scan when the Library opens, to pick up new downloads and sort old entries. */
+    fun autoScanOnce() {
+        if (autoScanned || _busy.value) return
+        autoScanned = true
+        viewModelScope.launch {
+            val added = runCatching { repo.scanDevice() }.getOrDefault(0)
+            if (added > 0) _messages.tryEmit(if (added == 1) "Found 1 new song" else "Found $added new songs")
+        }
+    }
 
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()

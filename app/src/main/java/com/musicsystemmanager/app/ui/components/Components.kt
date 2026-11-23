@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -66,32 +67,28 @@ data class MenuAction(
     val onClick: () -> Unit,
 )
 
-/** One song in a list: tap to play, plus visible 👍 Like, Play and Add-to-playlist buttons. */
+/**
+ * One song in a list: cover art on the left, then 👍 Like, Play/Pause and Add-to-playlist.
+ * On the song that's playing, the Play button turns into Pause (and back), and tapping
+ * the row pauses/resumes instead of restarting it.
+ */
 @Composable
 fun SongRow(
     song: Song,
     isCurrent: Boolean,
+    isPlaying: Boolean,
     onPlay: () -> Unit,
+    onTogglePlayPause: () -> Unit,
     onAddToPlaylist: () -> Unit,
     onToggleLike: () -> Unit,
     menu: List<MenuAction> = emptyList(),
 ) {
+    val showPause = isCurrent && isPlaying
+    val playOrToggle = if (isCurrent) onTogglePlayPause else onPlay
     ListItem(
-        modifier = Modifier.clickable(onClick = onPlay),
+        modifier = Modifier.clickable(onClick = playOrToggle),
         leadingContent = {
-            Box(
-                Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    if (isCurrent) Icons.Filled.GraphicEq else Icons.Filled.MusicNote,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
+            SongArtwork(uri = song.uri, isRecording = song.isRecording, isCurrent = isCurrent)
         },
         headlineContent = {
             Text(
@@ -109,8 +106,12 @@ fun SongRow(
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 LikeButton(liked = song.isLiked, onClick = onToggleLike, modifier = Modifier.size(40.dp))
-                IconButton(onClick = onPlay, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = "Play ${song.title}")
+                IconButton(onClick = playOrToggle, modifier = Modifier.size(40.dp)) {
+                    Icon(
+                        if (showPause) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = (if (showPause) "Pause " else "Play ") + song.title,
+                        tint = if (isCurrent) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
                 }
                 IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(40.dp)) {
                     Icon(

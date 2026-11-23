@@ -23,8 +23,38 @@ abstract class SongDao {
     )
     abstract fun search(query: String): Flow<List<Song>>
 
+    /** Like [search], but only songs ([recordings] = false) or only recordings (true). */
+    @Query(
+        """
+        SELECT * FROM songs
+        WHERE ((:recordings = 1 AND kind = 'recording')
+            OR (:recordings = 0 AND (kind IS NULL OR kind != 'recording')))
+          AND (:query = ''
+           OR title LIKE '%' || :query || '%'
+           OR artist LIKE '%' || :query || '%'
+           OR album LIKE '%' || :query || '%')
+        ORDER BY title COLLATE NOCASE
+        """
+    )
+    abstract fun searchKind(query: String, recordings: Boolean): Flow<List<Song>>
+
     @Query("SELECT COUNT(*) FROM songs")
     abstract fun count(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM songs WHERE kind = 'recording'")
+    abstract fun recordingCount(): Flow<Int>
+
+    @Query("UPDATE songs SET kind = :kind WHERE id = :id")
+    abstract suspend fun setKind(id: Long, kind: String)
+
+    /** Sets the kind only where none is stored yet, so a manual "Mark as…" choice is kept. */
+    @Query("UPDATE songs SET kind = :kind WHERE uri = :uri AND kind IS NULL")
+    abstract suspend fun setKindIfUnset(uri: String, kind: String)
+
+    @Transaction
+    open suspend fun fillMissingKinds(songs: List<Song>) {
+        songs.forEach { s -> s.kind?.let { setKindIfUnset(s.uri, it) } }
+    }
 
     @Query("SELECT * FROM songs WHERE id = :id")
     abstract suspend fun byId(id: Long): Song?

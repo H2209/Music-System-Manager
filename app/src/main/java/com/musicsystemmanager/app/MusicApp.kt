@@ -2,6 +2,7 @@ package com.musicsystemmanager.app
 
 import android.app.Application
 import android.content.Context
+import com.musicsystemmanager.app.data.ArtworkLoader
 import com.musicsystemmanager.app.data.MusicDatabase
 import com.musicsystemmanager.app.data.MusicRepository
 import com.musicsystemmanager.app.playback.PlayerConnection
@@ -26,4 +27,5 @@ class AppContainer(context: Context) {
     private val database = MusicDatabase.build(context)
     val repository = MusicRepository(context, database.songDao(), database.playlistDao())
     val player = PlayerConnection(context)
+    val artwork = ArtworkLoader(context)
 }

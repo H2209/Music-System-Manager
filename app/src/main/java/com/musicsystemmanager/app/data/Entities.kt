@@ -19,10 +19,15 @@ data class Song(
     val addedAt: Long = System.currentTimeMillis(),
     /** When the user tapped 👍, or null if not liked. */
     val likedAt: Long? = null,
+    /** [KIND_RECORDING] for voice/call recordings; null or [KIND_SONG] for music. */
+    val kind: String? = KIND_SONG,
 ) {
     val isLiked: Boolean get() = likedAt != null
+    val isRecording: Boolean get() = kind == KIND_RECORDING
 
     companion object {
+        const val KIND_SONG = "song"
+        const val KIND_RECORDING = "recording"
         const val SOURCE_DEVICE = "device"
         const val SOURCE_IMPORTED = "imported"
         const val UNKNOWN_ARTIST = "Unknown artist"

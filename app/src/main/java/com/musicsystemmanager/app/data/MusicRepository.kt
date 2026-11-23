@@ -24,8 +24,15 @@ class MusicRepository(
     // ---------- Library ----------
 
     fun searchSongs(query: String): Flow<List<Song>> = songDao.search(query.trim())
+    fun searchSongs(query: String, recordings: Boolean): Flow<List<Song>> =
+        songDao.searchKind(query.trim(), recordings)
     val songCount: Flow<Int> = songDao.count()
+    val recordingCount: Flow<Int> = songDao.recordingCount()
     suspend fun song(id: Long): Song? = songDao.byId(id)
+
+    /** Lets the user fix a wrong guess: move a file between Songs and Recordings. */
+    suspend fun setRecording(songId: Long, isRecording: Boolean) =
+        songDao.setKind(songId, if (isRecording) Song.KIND_RECORDING else Song.KIND_SONG)
 
     // ---------- Liked songs ----------
 
@@ -48,28 +55,49 @@ class MusicRepository(
             } else {
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
             }
-        val projection = arrayOf(
+        val sdk = android.os.Build.VERSION.SDK_INT
+        // Folder of the file: RELATIVE_PATH on Android 10+, full path (DATA) on 8-9.
+        @Suppress("DEPRECATION")
+        val pathColumn = if (sdk >= 29) MediaStore.Audio.Media.RELATIVE_PATH else MediaStore.Audio.Media.DATA
+        @android.annotation.SuppressLint("InlinedApi") // only used when sdk >= 31
+        val isRecordingColumn = if (sdk >= 31) MediaStore.Audio.Media.IS_RECORDING else null
+        val projection = listOfNotNull(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.DISPLAY_NAME,
-        )
+            MediaStore.Audio.Media.MIME_TYPE,
+            pathColumn,
+            isRecordingColumn,
+        ).toTypedArray()
+        // Music, plus anything Android 12+ flags as a recording (shown on the Recordings tab).
+        val selection = buildString {
+            append("${MediaStore.Audio.Media.IS_MUSIC} != 0")
+            if (isRecordingColumn != null) append(" OR $isRecordingColumn != 0")
+        }
         val found = mutableListOf<Song>()
-        resolver.query(
-            collection, projection,
-            "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, null,
-        )?.use { c ->
+        resolver.query(collection, projection, selection, null, null)?.use { c ->
             val idCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
             val titleCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
             val artistCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
             val albumCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val durCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val nameCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+            val mimeCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+            val pathCol = c.getColumnIndexOrThrow(pathColumn)
+            val recCol = isRecordingColumn?.let { c.getColumnIndexOrThrow(it) }
             while (c.moveToNext()) {
                 val uri = ContentUris.withAppendedId(collection, c.getLong(idCol))
-                val fileName = c.getString(nameCol)?.substringBeforeLast('.') ?: "Unknown"
+                val displayName = c.getString(nameCol)
+                val fileName = displayName?.substringBeforeLast('.') ?: "Unknown"
+                val kind = AudioClassifier.classify(
+                    path = c.getString(pathCol),
+                    fileName = displayName,
+                    mimeType = c.getString(mimeCol),
+                    flaggedAsRecording = recCol != null && c.getInt(recCol) != 0,
+                )
                 found += Song(
                     uri = uri.toString(),
                     title = c.getString(titleCol).orIfBlank(fileName),
@@ -77,10 +105,13 @@ class MusicRepository(
                     album = c.getString(albumCol).orEmpty(),
                     durationMs = c.getLong(durCol),
                     source = Song.SOURCE_DEVICE,
+                    kind = kind,
                 )
             }
         }
         val added = songDao.insertAll(found).count { it != -1L }
+        // Songs saved by older versions have no type yet: fill it in (manual choices are kept).
+        songDao.fillMissingKinds(found)
 
         // Drop songs that were deleted from the phone since the last scan.
         val present = found.mapTo(HashSet()) { it.uri }
@@ -164,8 +195,19 @@ class MusicRepository(
         return ext in AUDIO_EXTENSIONS
     }
 
-    private fun readSong(uri: Uri, knownName: String? = null): Song {
-        val fallbackTitle = (knownName ?: displayName(uri))?.substringBeforeLast('.') ?: "Unknown"
+    private fun readSong(uri: Uri, knownName: String? = null, folderPath: String? = null): Song {
+        val name = knownName ?: displayName(uri)
+        val fallbackTitle = name?.substringBeforeLast('.') ?: "Unknown"
+        val kind = AudioClassifier.classify(
+            path = folderPath ?: Uri.decode(uri.toString()),
+            fileName = name,
+            mimeType = runCatching { resolver.getType(uri) }.getOrNull(),
+            flaggedAsRecording = false,
+        )
+        return readTags(uri, fallbackTitle).copy(kind = kind)
+    }
+
+    private fun readTags(uri: Uri, fallbackTitle: String): Song {
         val retriever = MediaMetadataRetriever()
         return try {
             retriever.setDataSource(context, uri)

@@ -6,7 +6,7 @@ A free Android music player and playlist manager. No ads, no account, no trackin
 
 ## 📥 Download & install (Android phone)
 
-1. On your phone, open the **[latest release](../../releases/latest)** and tap **`MusicSystemManager-1.0.0.apk`** to download it (about 2 MB).
+1. On your phone, open the **[latest release](../../releases/latest)** and tap the **`MusicSystemManager-…apk`** file to download it (about 2 MB).
 2. Open the downloaded file. If Android asks, allow **"Install unknown apps"** for your browser or Files app. This is normal for apps that don't come from the Play Store.
 3. Tap **Install**, then **Open**.
 4. In the app, tap **Scan phone for music**, or import files or a folder.
@@ -19,8 +19,10 @@ A free Android music player and playlist manager. No ads, no account, no trackin
   - *Scan phone for music*: finds every song already on the device.
   - *Import files*: pick one or many audio files with the system picker.
   - *Import a folder*: pulls in every audio file in a folder and its sub-folders.
+- **Songs and Recordings kept apart**: voice memos, call recordings and voice notes go to their own *Recordings* tab (🎙), so the Songs list is only music. Wrong guess? Use ⋮ → *This is a song / This is a recording*.
+- **Cover art**: songs that come with a cover picture (most downloaded MP3s) show it in the list, the mini player and the player page.
 - **Search** your whole library by title, artist or album.
-- **Every song has buttons:** 👍 **Like**, ▶ **Play** and ➕ **Add to playlist**. The ⋮ menu also has *Play next*, *Add to queue* and *Remove from app*.
+- **Every song has buttons:** 👍 **Like**, ▶ **Play** (turns into ⏸ **Pause** on the playing song) and ➕ **Add to playlist**. The ⋮ menu also has *Play next*, *Add to queue* and *Remove from app*.
 - **👍 Liked songs**: a built-in playlist, always first on the Playlists tab, holding every song you liked.
 - **Playlists with any name**, emojis included (`🔥 Gym Pump`, `🌙 Late night`, `🚗 Road trip`). The name dialog has quick-pick emojis, and the keyboard's emoji key works too.
 - **Add songs one by one**: a playlist's *Add* screen lets you search the library and tap ⊕ / ✓ on each song.

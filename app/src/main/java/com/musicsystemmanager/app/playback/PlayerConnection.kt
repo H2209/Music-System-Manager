@@ -36,6 +36,8 @@ data class QueueEntry(
 
 data class PlayerUiState(
     val songId: Long? = null,
+    /** File location of the current song (used to show its cover art). */
+    val uri: String? = null,
     val title: String = "",
     val artist: String = "",
     val isPlaying: Boolean = false,
@@ -225,6 +227,7 @@ class PlayerConnection(context: Context) {
 
         _state.value = PlayerUiState(
             songId = item?.mediaId?.toLongOrNull(),
+            uri = (item?.requestMetadata?.mediaUri ?: item?.localConfiguration?.uri)?.toString(),
             title = item?.mediaMetadata?.title?.toString().orEmpty(),
             artist = item?.mediaMetadata?.artist?.toString().orEmpty(),
             isPlaying = c.isPlaying ||
